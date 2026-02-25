@@ -1,0 +1,30 @@
+spring:
+  config:
+    import: optional:file:.env[.properties]
+
+  application:
+    name: giftify-settlement
+
+  profiles:
+    group:
+      local:
+        - settlement-local
+      dev:
+        - settlement-dev
+      prod:
+        - settlement-prod
+
+server:
+  port: 8881
+  forward-headers-strategy: native
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+
+logging:
+  level:
+    root: INFO
+    app.giftify.settlement: DEBUG

@@ -37,4 +37,5 @@ include(
 include(
     "bootstrap",
     "bootstrap:api-server",
+    "bootstrap:settlement-server",
 )
