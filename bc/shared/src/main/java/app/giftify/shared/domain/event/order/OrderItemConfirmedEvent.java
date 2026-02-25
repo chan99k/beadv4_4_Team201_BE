@@ -1,11 +1,14 @@
 package app.giftify.shared.domain.event.order;
 
+import org.springframework.modulith.events.Externalized;
+
 import app.giftify.shared.domain.event.BaseDomainEvent;
 import app.giftify.shared.domain.type.TargetType;
 import app.giftify.shared.domain.vo.Money;
 
 import java.time.LocalDateTime;
 
+@Externalized("order.item-confirmed::#{#this.getOrderItemId()}")
 public class OrderItemConfirmedEvent extends BaseDomainEvent {
     private final Long orderId;
     private final Long orderItemId;

@@ -25,6 +25,14 @@ spring:
         jwt:
           issuer-uri: https://${AUTH0_DOMAIN}/
 
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: settlement-server
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
   batch:
     jdbc:
       initialize-schema: always

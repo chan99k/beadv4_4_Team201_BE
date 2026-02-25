@@ -33,6 +33,14 @@ spring:
           issuer-uri: https://${AUTH0_DOMAIN}/
           jwk-set-uri: https://${AUTH0_DOMAIN}/.well-known/jwks.json
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:redpanda:9092}
+    consumer:
+      group-id: settlement-server
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
   batch:
     jdbc:
       initialize-schema: never
