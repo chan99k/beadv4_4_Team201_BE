@@ -58,6 +58,9 @@ spring:
 auth0:
   audience: ${AUTH0_AUDIENCE}
 
+internal-api:
+  base-url: ${API_SERVER_URL:http://localhost:8080}
+
 app:
   service:
     api-server:
