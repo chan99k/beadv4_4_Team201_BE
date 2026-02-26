@@ -10,7 +10,7 @@ dependencies {
     implementation(project(":bc:member"))
     implementation(project(":bc:catalog"))
     implementation(project(":bc:core"))
-    implementation(project(":bc:settlement"))
+    // bc:settlement -> settlement-server로 분리됨
     implementation(project(":bc:notification"))
     implementation(project(":support:common"))
     implementation(project(":support:logging"))
