@@ -9,4 +9,9 @@ tosspayments:
     base-url: ${TOSSPAYMENTS_API_BASE_URL}
 
 internal-api:
-  base-url: http://api-server
+  base-url: http://api-server:8080
+
+batch:
+  order-expiration:
+    interval-minutes: 30
+    threshold-minutes: 30

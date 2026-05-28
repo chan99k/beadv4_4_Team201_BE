@@ -15,7 +15,7 @@ import app.giftify.shared.domain.type.PaymentMethod;
 import app.giftify.shared.domain.type.PaymentType;
 import app.giftify.shared.domain.vo.Money;
 
-@DisplayName("Payment.markAsPartiallyCanceled() 테스트")
+@DisplayName("Payment.partialCancel() 테스트")
 class PaymentMarkAsPartiallyCanceledTest {
 
 	private Payment createPaidPayment(Long paymentId, Money paidAmount) {
@@ -90,26 +90,26 @@ class PaymentMarkAsPartiallyCanceledTest {
 			String reason = "부분 환불 요청";
 
 			// when
-			payment.markAsPartiallyCanceled(newTransactionKey, cancelAmount, CancelType.REFUND, reason);
+			Payment result = payment.partialCancel(newTransactionKey, cancelAmount, CancelType.REFUND, reason);
 
 			// then
-			assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PARTIALLY_CANCELED);
-			assertThat(payment.getRefundedAmount()).isEqualTo(Money.of(3000));
-			assertThat(payment.getLastTransactionKey()).isEqualTo(newTransactionKey);
+			assertThat(result.getStatus()).isEqualTo(PaymentStatus.PARTIALLY_CANCELED);
+			assertThat(result.getRefundedAmount()).isEqualTo(Money.of(3000));
+			assertThat(result.getLastTransactionKey()).isEqualTo(newTransactionKey);
 
-			List<Object> events = payment.pullEvents();
+			List<Object> events = result.pullEvents();
 			assertThat(events).hasSize(1);
 			assertThat(events.get(0)).isInstanceOf(PaymentCanceledEvent.class);
 
 			PaymentCanceledEvent event = (PaymentCanceledEvent) events.get(0);
-			assertThat(event.data().amount()).isEqualTo(cancelAmount);
+			assertThat(event.data().cancelAmount()).isEqualTo(cancelAmount);
 			assertThat(event.data().transactionKey()).isEqualTo(newTransactionKey);
 			assertThat(event.data().cancelType()).isEqualTo(CancelType.REFUND);
 			assertThat(event.data().reason()).isEqualTo(reason);
 		}
 
 		@Test
-		@DisplayName("PAID 상태에서 전액 취소(markAsPartiallyCanceled 사용) → CANCELED 상태로 변경")
+		@DisplayName("PAID 상태에서 전액 취소(partialCancel 사용) → CANCELED 상태로 변경")
 		void fullCancelViaPartialCancel_FromPaid_ToCanceled() {
 			// given
 			Payment payment = createPaidPayment(1L, Money.of(10000));
@@ -118,12 +118,12 @@ class PaymentMarkAsPartiallyCanceledTest {
 			String reason = "전액 환불";
 
 			// when
-			payment.markAsPartiallyCanceled(newTransactionKey, cancelAmount, CancelType.REFUND, reason);
+			Payment result = payment.partialCancel(newTransactionKey, cancelAmount, CancelType.REFUND, reason);
 
 			// then
-			assertThat(payment.getStatus()).isEqualTo(PaymentStatus.CANCELED);
-			assertThat(payment.getRefundedAmount()).isEqualTo(Money.of(10000));
-			assertThat(payment.getLastTransactionKey()).isEqualTo(newTransactionKey);
+			assertThat(result.getStatus()).isEqualTo(PaymentStatus.CANCELED);
+			assertThat(result.getRefundedAmount()).isEqualTo(Money.of(10000));
+			assertThat(result.getLastTransactionKey()).isEqualTo(newTransactionKey);
 		}
 
 		@Test
@@ -136,17 +136,17 @@ class PaymentMarkAsPartiallyCanceledTest {
 			String reason = "추가 부분 환불";
 
 			// when
-			payment.markAsPartiallyCanceled(newTransactionKey, additionalCancelAmount, CancelType.REFUND, reason);
+			Payment result = payment.partialCancel(newTransactionKey, additionalCancelAmount, CancelType.REFUND, reason);
 
 			// then
-			assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PARTIALLY_CANCELED);
-			assertThat(payment.getRefundedAmount()).isEqualTo(Money.of(5000));
-			assertThat(payment.getLastTransactionKey()).isEqualTo(newTransactionKey);
+			assertThat(result.getStatus()).isEqualTo(PaymentStatus.PARTIALLY_CANCELED);
+			assertThat(result.getRefundedAmount()).isEqualTo(Money.of(5000));
+			assertThat(result.getLastTransactionKey()).isEqualTo(newTransactionKey);
 
-			List<Object> events = payment.pullEvents();
+			List<Object> events = result.pullEvents();
 			assertThat(events).hasSize(1);
 			PaymentCanceledEvent event = (PaymentCanceledEvent) events.get(0);
-			assertThat(event.data().amount()).isEqualTo(additionalCancelAmount);
+			assertThat(event.data().cancelAmount()).isEqualTo(additionalCancelAmount);
 		}
 
 		@Test
@@ -159,12 +159,12 @@ class PaymentMarkAsPartiallyCanceledTest {
 			String reason = "최종 취소";
 
 			// when
-			payment.markAsPartiallyCanceled(newTransactionKey, finalCancelAmount, CancelType.REFUND, reason);
+			Payment result = payment.partialCancel(newTransactionKey, finalCancelAmount, CancelType.REFUND, reason);
 
 			// then
-			assertThat(payment.getStatus()).isEqualTo(PaymentStatus.CANCELED);
-			assertThat(payment.getRefundedAmount()).isEqualTo(Money.of(10000));
-			assertThat(payment.getLastTransactionKey()).isEqualTo(newTransactionKey);
+			assertThat(result.getStatus()).isEqualTo(PaymentStatus.CANCELED);
+			assertThat(result.getRefundedAmount()).isEqualTo(Money.of(10000));
+			assertThat(result.getLastTransactionKey()).isEqualTo(newTransactionKey);
 		}
 	}
 
@@ -181,7 +181,7 @@ class PaymentMarkAsPartiallyCanceledTest {
 
 			// when & then
 			assertThatThrownBy(() ->
-				payment.markAsPartiallyCanceled("txn-excessive", excessiveCancelAmount, CancelType.REFUND, "초과 환불")
+				payment.partialCancel("txn-excessive", excessiveCancelAmount, CancelType.REFUND, "초과 환불")
 			)
 				.isInstanceOf(PaymentException.class)
 				.extracting("errorCode")
@@ -197,7 +197,7 @@ class PaymentMarkAsPartiallyCanceledTest {
 
 			// when & then
 			assertThatThrownBy(() ->
-				payment.markAsPartiallyCanceled("txn-excessive", excessiveCancelAmount, CancelType.REFUND, "초과 환불")
+				payment.partialCancel("txn-excessive", excessiveCancelAmount, CancelType.REFUND, "초과 환불")
 			)
 				.isInstanceOf(PaymentException.class)
 				.extracting("errorCode")
@@ -213,7 +213,7 @@ class PaymentMarkAsPartiallyCanceledTest {
 
 			// when & then
 			assertThatThrownBy(() ->
-				payment.markAsPartiallyCanceled("txn-invalid", cancelAmount, CancelType.REFUND, "대기 중 취소")
+				payment.partialCancel("txn-invalid", cancelAmount, CancelType.REFUND, "대기 중 취소")
 			)
 				.isInstanceOf(PaymentException.class)
 				.extracting("errorCode")
@@ -235,15 +235,15 @@ class PaymentMarkAsPartiallyCanceledTest {
 			String reason = "환불 테스트";
 
 			// when
-			payment.markAsPartiallyCanceled(transactionKey, cancelAmount, CancelType.REFUND, reason);
+			Payment result = payment.partialCancel(transactionKey, cancelAmount, CancelType.REFUND, reason);
 
 			// then
-			List<Object> events = payment.pullEvents();
+			List<Object> events = result.pullEvents();
 			assertThat(events).hasSize(1);
 
 			PaymentCanceledEvent event = (PaymentCanceledEvent) events.get(0);
 			assertThat(event.data().paymentId()).isEqualTo(1L);
-			assertThat(event.data().amount()).isEqualTo(cancelAmount);
+			assertThat(event.data().cancelAmount()).isEqualTo(cancelAmount);
 			assertThat(event.data().transactionKey()).isEqualTo(transactionKey);
 			assertThat(event.data().cancelType()).isEqualTo(CancelType.REFUND);
 			assertThat(event.data().reason()).isEqualTo(reason);

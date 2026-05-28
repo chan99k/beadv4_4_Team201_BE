@@ -1,18 +1,15 @@
 package app.giftify.cart.adapter.inbound;
 
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
 import app.giftify.cart.application.inbound.AddCartItemCommand;
 import app.giftify.cart.application.inbound.CartService;
 import app.giftify.cart.core.domain.CartItemAddResult;
-import app.giftify.cart.core.domain.CartItemKey;
 import app.giftify.security.common.CurrentMemberId;
 import app.giftify.shared.api.response.RsData;
-import app.giftify.shared.domain.type.TargetType;
 import app.giftify.shared.domain.vo.Money;
 import io.swagger.v3.oas.annotations.Parameter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -28,10 +25,7 @@ public class CartController implements CartV2ApiSpec {
 			@CurrentMemberId Long memberId,
 			@RequestBody CartItemRequest request
 	) {
-		CartItemAddResult result = cartService.addItemToMyCart(memberId, new AddCartItemCommand(
-				new CartItemKey(request.targetType(), request.targetId()),
-				Money.of(request.amount())
-		));
+		CartItemAddResult result = cartService.upsertCartItem(memberId, new AddCartItemCommand(request.wishlistId(), request.wishlistItemId(), Money.of(request.amount())));
 
 		if (result == CartItemAddResult.UPDATED) {
 			return ResponseEntity.ok(RsData.success(null, "이미 장바구니에 있는 펀딩으로 가격이 수정되었습니다."));
@@ -46,12 +40,10 @@ public class CartController implements CartV2ApiSpec {
 		@RequestBody List<CartItemRequest> requests
 	) {
 		List<AddCartItemCommand> commands = requests.stream()
-				.map(req -> new AddCartItemCommand(
-						new CartItemKey(req.targetType(), req.targetId()),
-						Money.of(req.amount())
-				)).toList();
+				.map(req -> new AddCartItemCommand(req.wishlistId(), req.wishlistItemId(), Money.of(req.amount())))
+                .toList();
 
-		cartService.addItemsToMyCart(memberId, commands);
+		cartService.upsertCartItems(memberId, commands);
 		return ResponseEntity.ok(RsData.success(null, "펀딩 아이템들이 장바구니에 담겼습니다."));
 	}
 
@@ -77,22 +69,19 @@ public class CartController implements CartV2ApiSpec {
 		@RequestBody List<CartItemRequest> requests
 	) {
 		List<AddCartItemCommand> commands = requests.stream()
-						.map(c -> new AddCartItemCommand(
-								new CartItemKey(c.targetType(), c.targetId()),
-								Money.of(c.amount())
-						)).toList();
-		cartService.addItemsToMyCart(memberId, commands);
+						.map(c -> new AddCartItemCommand(c.wishlistId(),c.wishlistItemId(), Money.of(c.amount())))
+                        .toList();
+		cartService.upsertCartItems(memberId, commands);
 		return ResponseEntity.ok(RsData.success(null));
 	}
 
 	@Override
-	@DeleteMapping("/items/{targetType}")
+	@DeleteMapping("/items")
 	public ResponseEntity<RsData<Void>> removeItems(
 		@CurrentMemberId Long memberId,
-		@PathVariable(value = "targetType") TargetType targetType,
-		@RequestParam(value = "targetIds", required = false) List<Long> targetIds
+		@RequestParam(value = "wishlistItemIds", required = false) List<Long> wishlistItemIds
 	) {
-		cartService.removeItems(memberId, targetType, targetIds);
+		cartService.removeItems(memberId, wishlistItemIds);
 		return ResponseEntity.ok(RsData.success(null));
 	}
 

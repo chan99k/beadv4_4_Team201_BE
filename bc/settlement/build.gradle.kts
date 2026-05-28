@@ -3,6 +3,7 @@ dependencies {
     implementation(project(":support:common"))
     implementation(project(":support:security"))
     implementation(project(":support:jpa"))
+    implementation(project(":support:web"))
     implementation(project(":bc:shared"))
 
     // Spring Boot Starters
@@ -18,11 +19,11 @@ dependencies {
     annotationProcessor(libs.lombok)
 
     // Retry
-    implementation("org.springframework.retry:spring-retry:2.0.2")
-    implementation("org.springframework.boot:spring-boot-starter-aop")
+    implementation(libs.spring.retry)
+    implementation("org.springframework.boot:spring-boot-starter-aspectj")
 
     // batch
-    implementation("org.springframework.boot:spring-boot-starter-batch")
+    implementation(libs.spring.boot.starter.batch.jdbc)
 
     // Test
     testImplementation(libs.spring.boot.starter.test)

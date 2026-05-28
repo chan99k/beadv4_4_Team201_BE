@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -27,6 +28,12 @@ public class ProductAdapter implements ProductRepositoryPort {
         ProductJpa entity = productMapper.toEntity(product);
         ProductJpa savedEntity = productRepository.save(entity);
         return productMapper.toDomain(savedEntity);
+    }
+
+    @Override
+    public void saveAndFlush(Product product) {
+        ProductJpa entity = productMapper.toEntity(product);
+        productRepository.saveAndFlush(entity);
     }
 
     @Override
@@ -75,6 +82,16 @@ public class ProductAdapter implements ProductRepositoryPort {
                 .map(productMapper::toDomain);
     }
 
+    @Override
+    public List<Long> findExpiredDeletedProductIds(LocalDateTime cutoff) {
+        return productRepository.findExpiredDeletedProductIds(cutoff);
+    }
+
+    @Override
+    public int hardDeleteExpiredProducts(LocalDateTime cutoff) {
+        return productRepository.deleteExpiredProducts(cutoff);
+    }
+
     private ProductSearchDto toDto(ProductSearchCommand command) {
         ProductSearchDto dto = new ProductSearchDto();
         dto.setKeyword(command.getKeyword());
@@ -97,6 +114,7 @@ public class ProductAdapter implements ProductRepositoryPort {
         dto.setPage(command.getPage());
         dto.setSize(command.getSize());
         dto.setStatus(command.getStatus());
+        dto.setDeleted(command.isDeleted());
         return dto;
     }
 }

@@ -26,10 +26,11 @@ public class Product extends BaseDomainModel {
     private String imageKey;
     private final LocalDateTime createdAt;
     private final LocalDateTime updatedAt;
+    private LocalDateTime deletedAt;
 
     @Builder
     public Product(Long id, Long sellerId, String name, String description, int price, int stock, ProductStatus status,
-                   ProductCategory category, String imageKey, LocalDateTime createdAt, LocalDateTime updatedAt) {
+                   ProductCategory category, String imageKey, LocalDateTime createdAt, LocalDateTime updatedAt, LocalDateTime deletedAt) {
         super(id);
         validateCreation(sellerId, name, description, price, stock);
         this.sellerId = sellerId;
@@ -42,6 +43,7 @@ public class Product extends BaseDomainModel {
         this.imageKey = imageKey;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.deletedAt = deletedAt;
     }
 
     private static void validateCreation(Long sellerId, String name, String description, int price, int stock) {
@@ -59,7 +61,6 @@ public class Product extends BaseDomainModel {
 
     /**
      * 상품 상태 변경
-     * todo 상품 상태 변경 이력 컬렉션
      */
     // 상품 등록 승인
     public void approve() {
@@ -85,6 +86,9 @@ public class Product extends BaseDomainModel {
 
     // 상품 상태 검증 todo Map<from,to> 상태 머신
     private void validateTransition(ProductStatus toStatus) {
+        if (this.status == toStatus)
+            throw new ProductException(PRODUCT_CANNOT_CHANGE_TO_SAME_STATUS);
+
         if (toStatus == DRAFT) {
             throw new ProductException(PRODUCT_CANNOT_CHANGE_STATUS_TO_DRAFT);
         }
@@ -144,31 +148,7 @@ public class Product extends BaseDomainModel {
         registerStockUpdatedEvent(this.sellerId, this.getId(), beforeStock, this.stock, newStock - beforeStock, StockChangeType.MANUAL_SELLER);
     }
 
-    // 펀딩에 의한 상품 재고 감소
-    public void decreaseStockByFunding() {
-        validateStockForFunding();
-
-        int beforeStock = this.stock;
-        --this.stock;
-
-        if (this.stock == 0 && this.status == ACTIVE)
-            registerEvent(new ProductSaleDisabledEvent(this.getId()));
-
-        registerStockUpdatedEvent(this.sellerId, this.getId(), beforeStock, this.stock, this.stock - beforeStock, StockChangeType.ORDER_COMPLETED);
-    }
-
-    // 펀딩에 의한 상품 재고 추가 (반품 등등)
-    public void increaseStockByFunding() {
-        int beforeStock = this.stock;
-        ++this.stock;
-
-        if (beforeStock == 0 && this.status == ACTIVE)
-            registerEvent(new ProductSaleEnabledEvent(this.getId()));
-
-        registerStockUpdatedEvent(this.sellerId, this.getId(), beforeStock, this.stock, this.stock - beforeStock, StockChangeType.ORDER_REFUNDED);
-    }
-
-    // 일반 주문에 의한 상품 재고 감소
+    // 주문에 의한 상품 재고 감소
     public void decreaseStock(int quantity) {
         validateStockForOrder(quantity);
 
@@ -181,7 +161,7 @@ public class Product extends BaseDomainModel {
         registerStockUpdatedEvent(this.sellerId, this.getId(), beforeStock, this.stock, this.stock - beforeStock, StockChangeType.ORDER_COMPLETED);
     }
 
-    // 일반 주문에 의한 상품 재고 추가 (반품 등등)
+    // 주문에 의한 상품 재고 추가 (반품 등등)
     public void increaseStock(int quantity) {
         int beforeStock = this.stock;
         this.stock += quantity;
@@ -192,14 +172,7 @@ public class Product extends BaseDomainModel {
         registerStockUpdatedEvent(this.sellerId, this.getId(), beforeStock, this.stock, this.stock - beforeStock, StockChangeType.ORDER_REFUNDED);
     }
 
-    // 펀딩 재고 검증: 펀딩은 항상 1개 차감이므로 재고가 1 미만이면 불가
-    private void validateStockForFunding() {
-        if (this.stock < 1) {
-            throw new ProductException(PRODUCT_OUT_OF_STOCK);
-        }
-    }
-
-    // 일반 주문 재고 검증: 주문 수량만큼 재고가 있어야 함
+    // 주문 재고 검증: 주문 수량만큼 재고가 있어야 함
     private void validateStockForOrder(int quantity) {
         if (this.stock < quantity) {
             throw new ProductException(PRODUCT_OUT_OF_STOCK);
@@ -216,5 +189,15 @@ public class Product extends BaseDomainModel {
     ) {
         StockChangeResult result = new StockChangeResult(sellerId, productId, beforeStock, afterStock, delta, changeType);
         registerEvent(new ProductStockUpdatedEvent(result));
+    }
+
+    /**
+     * 상품 삭제
+     * INACTIVE 상품만 soft delete 가능
+     */
+    public void delete() {
+        if (this.status != INACTIVE)
+            throw new ProductException(PRODUCT_NOT_IN_INACTIVE_STATUS);
+        this.deletedAt = LocalDateTime.now();
     }
 }

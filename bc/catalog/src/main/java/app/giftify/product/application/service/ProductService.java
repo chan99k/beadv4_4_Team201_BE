@@ -4,11 +4,10 @@ import app.giftify.product.adapter.inbound.web.requestDto.MyProductSearchDto;
 import app.giftify.product.adapter.inbound.web.requestDto.ProductSearchDto;
 import app.giftify.product.adapter.inbound.web.requestDto.ProductUpdateRequestDto;
 import app.giftify.product.application.port.in.*;
-import app.giftify.product.application.port.out.MyProductSearchCommand;
-import app.giftify.product.application.port.out.ProductRepositoryPort;
-import app.giftify.product.application.port.out.ProductSearchCommand;
+import app.giftify.product.application.port.out.*;
 import app.giftify.product.application.support.ProductSupport;
 import app.giftify.product.domain.Product;
+import app.giftify.product.domain.ProductPolicy;
 import app.giftify.product.domain.event.ProductAcceptedEvent;
 import app.giftify.product.domain.exception.ProductException;
 import app.giftify.replica.member.Member;
@@ -16,29 +15,33 @@ import app.giftify.replica.member.MemberRepository;
 import app.giftify.shared.api.exception.InfraException;
 import app.giftify.shared.api.paging.PageResponse;
 import app.giftify.shared.domain.event.EventPublisher;
+import app.giftify.shared.domain.event.product.ProductDeletedEvent;
 import app.giftify.shared.domain.event.product.ProductUpdatedEvent;
+import app.giftify.shared.domain.vo.SellerOrderItem;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.time.LocalDateTime;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static app.giftify.product.domain.ProductStatus.ACTIVE;
-import static app.giftify.product.domain.ProductStatus.INACTIVE;
 import static app.giftify.product.domain.exception.ProductErrorCode.*;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
-public class ProductService implements ProductCreateUseCase, ProductGetUseCase, ProductSearchUseCase, ProductApproveUseCase, ProductRejectUseCase, ProductUpdateUseCase, DecreaseProductStockUseCase {
+public class ProductService implements ProductCreateUseCase, ProductGetUseCase, ProductSearchUseCase, ProductApproveUseCase, ProductRejectUseCase, ProductUpdateUseCase, DecreaseProductStockUseCase, ProductDeleteUseCase, HardDeleteExpiredProductUseCase {
     private final ProductRepositoryPort productRepositoryPort;
+    private final ProductStockHistoryRepositoryPort productStockHistoryRepositoryPort;
     private final MemberRepository memberRepository;
     private final EventPublisher eventPublisher;
     private final ProductSupport productSupport;
+    private final FundingClientPort fundingClientPort;
 
     // 상품 생성 (판매자)
     @Override
@@ -115,7 +118,8 @@ public class ProductService implements ProductCreateUseCase, ProductGetUseCase, 
                 searchDto.getSort(),
                 searchDto.getPage(),
                 searchDto.getSize(),
-                searchDto.getStatus()
+                searchDto.getStatus(),
+                searchDto.isDeleted()
         );
 
         Page<Product> result = productRepositoryPort.searchMyProducts(sellerId, command);
@@ -169,15 +173,17 @@ public class ProductService implements ProductCreateUseCase, ProductGetUseCase, 
             } catch (PessimisticLockingFailureException e) {
                 throw new InfraException(PRODUCT_STOCK_LOCK_TIMEOUT);
             }
-
             validateProductOwner(product, sellerId);
+            validateNotDeleted(product);
+
             if (product.getStock() != requestDto.expectedStock()) { // CAS 검증 (판매자가 재고 수정하려는 사이에 재고 변동이 일어남)
-                throw new ProductException(PRODUCT_STOCK_CHANGED);
+                throw new ProductException(PRODUCT_STOCK_CHANGED); // TODO 재시도 or 재고수정 분리
             }
             product.updateStock(requestDto.stock());
         } else {
             product = productSupport.findById(productId);
             validateProductOwner(product, sellerId);
+            validateNotDeleted(product);
         }
 
         Optional.ofNullable(requestDto.name()).ifPresent(product::updateName);
@@ -188,13 +194,19 @@ public class ProductService implements ProductCreateUseCase, ProductGetUseCase, 
         var status = requestDto.status();
         if (status != null) {
             switch (status) {
-                case ACTIVE -> {
-                    if (product.getStatus() != ACTIVE)
-                        product.active();
+                case ACTIVE -> { // 도메인에서 상태 검증
+                    product.active();
                 }
-                case INACTIVE -> {
-                    if (product.getStatus() != INACTIVE)
-                        product.inActive();
+                case INACTIVE -> { // 펀딩 체크
+                    log.info("진행 중인 펀딩 확인 중 ...");
+                    boolean isFundingOngoing = fundingClientPort.checkFundingExistsByProductId(productId);
+
+                    if (isFundingOngoing) {
+                        log.info("[판매 중지 변경 실패] 진행 중인 펀딩이 있습니다.");
+                        throw new ProductException(CANNOT_STOP_SALE_DUE_TO_ACTIVE_FUNDING);
+                    }
+                    product.inActive();
+                    log.info("[판매 중지 변경 성공] 변경 완료");
                 }
             }
         }
@@ -206,28 +218,43 @@ public class ProductService implements ProductCreateUseCase, ProductGetUseCase, 
                 product.getName(),
                 product.getImageKey()
         ));
+        log.info("상품 정보가 업데이트 되었습니다.");
 
         return ProductUpdateResult.from(product);
     }
 
     /**
-     * 펀딩에 의한 재고 감소
-     * 비관적 락 - 배타 잠금 적용
+     * 주문에 의한 재고 감소 (펀딩/일반 주문 통합)
+     * 데드락 방지를 위해 productId 오름차순으로 배타 잠금 획득
      */
     @Transactional
     @Override
-    public void decreaseStockByFunding(Long productId) {
-        Product product;
-        try {
-            product = productSupport.findByIdForUpdate(productId); // 배타 잠금
-        } catch (PessimisticLockingFailureException e) {
-            throw new InfraException(PRODUCT_STOCK_LOCK_TIMEOUT);
+    public List<SellerOrderItem> decreaseStockByOrder(Map<Long, Integer> productQuantityMap) {
+        var sorted = new TreeMap<>(productQuantityMap); // ProductId를 오름차순으로 정렬
+        List<SellerOrderItem> sellerOrderItems = new ArrayList<>(sorted.size());
+
+        for (var entry : sorted.entrySet()) {
+            Long productId = entry.getKey();
+            int quantity = entry.getValue();
+
+            Product product;
+            try {
+                product = productSupport.findByIdForUpdate(productId);
+            } catch (PessimisticLockingFailureException e) {
+                throw new InfraException(PRODUCT_STOCK_LOCK_TIMEOUT);
+            }
+
+            product.decreaseStock(quantity);
+            productRepositoryPort.saveAndFlush(product);
+
+            product.pullEvents().forEach(eventPublisher::publish);
+
+            sellerOrderItems.add(new SellerOrderItem(
+                    product.getSellerId(), product.getId(), product.getName(), quantity
+            ));
         }
 
-        product.decreaseStockByFunding();
-        productRepositoryPort.save(product);
-
-        product.pullEvents().forEach(eventPublisher::publish);
+        return sellerOrderItems;
     }
 
     // 도메인 -> ProductResult(애플리케이션 전용 dto/queryModel)
@@ -264,5 +291,36 @@ public class ProductService implements ProductCreateUseCase, ProductGetUseCase, 
     private void validateProductOwner(Product product, Long sellerId) {
         if (!product.getSellerId().equals(sellerId))
             throw new ProductException(PRODUCT_NOT_OWNED);
+    }
+
+    // 삭제된 상품 검증
+    private void validateNotDeleted(Product product) {
+        if (product.getDeletedAt() != null)
+            throw new ProductException(PRODUCT_ALREADY_DELETED);
+    }
+
+    @Override
+    @Transactional
+    public void deleteProduct(Long productId, Long sellerId) {
+        Product product = productSupport.findByIdAndSellerId(productId, sellerId);
+        product.delete();
+        productRepositoryPort.save(product);
+
+        eventPublisher.publish(new ProductDeletedEvent(productId));
+    }
+
+    @Override
+    @Transactional
+    public int hardDeleteExpiredProducts() {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(ProductPolicy.DELETED_RETENTION_DAYS);
+
+        List<Long> expiredProductIds = productRepositoryPort.findExpiredDeletedProductIds(cutoff);
+        if (expiredProductIds.isEmpty()) {
+            return 0;
+        }
+
+        // 삭제 순서: 재고 이력 -> 상품
+        productStockHistoryRepositoryPort.deleteByProductIds(expiredProductIds);
+        return productRepositoryPort.hardDeleteExpiredProducts(cutoff);
     }
 }

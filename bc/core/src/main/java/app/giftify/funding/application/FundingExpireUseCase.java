@@ -2,14 +2,13 @@ package app.giftify.funding.application;
 
 import app.giftify.funding.adpater.inbound.dto.FundingCompleteResponseDto;
 import app.giftify.funding.adpater.outbound.jpa.Funding;
-import app.giftify.funding.adpater.outbound.jpa.FundingParticipantMember;
 import app.giftify.funding.adpater.outbound.repository.FundingParticipantMemberRepository;
 import app.giftify.funding.adpater.outbound.repository.FundingRepository;
-import app.giftify.funding.domain.FundingStatus;
 import app.giftify.funding.domain.exception.FundingErrorCode;
 import app.giftify.funding.domain.exception.FundingException;
 import app.giftify.shared.domain.event.EventPublisher;
 import app.giftify.shared.domain.event.funding.FundingExpiredEvent;
+import app.giftify.shared.domain.type.FundingStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -48,6 +47,7 @@ public class FundingExpireUseCase {
         return new FundingCompleteResponseDto(
                 funding.getId(),
                 funding.getWishlistItemId(),
+                funding.getProductName(),
                 funding.getStatus(),
                 funding.getClosedAt()
         );
@@ -57,7 +57,7 @@ public class FundingExpireUseCase {
     public List<FundingCompleteResponseDto> expireExpiredFundings(LocalDateTime now) {
 
         //fixme: 데이터양이많아질경우
-        List<Funding> expiredFundings = fundingRepository.findByDeadlineAfterAndStatusIn(
+        List<Funding> expiredFundings = fundingRepository.findByDeadlineBeforeAndStatusIn(
                 now,
                 List.of(FundingStatus.IN_PROGRESS, FundingStatus.ACHIEVED)
         );
@@ -84,6 +84,7 @@ public class FundingExpireUseCase {
                 .map(funding -> new FundingCompleteResponseDto(
                         funding.getId(),
                         funding.getWishlistItemId(),
+                        funding.getProductName(),
                         funding.getStatus(),
                         funding.getClosedAt()
                 ))

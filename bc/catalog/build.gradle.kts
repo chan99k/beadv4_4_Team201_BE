@@ -5,8 +5,6 @@ plugins {
 group = "app.giftify"
 version = "1.0.0-SNAPSHOT"
 
-val springModulithVersion = "1.3.1"
-
 repositories {
     mavenCentral()
 }
@@ -15,6 +13,7 @@ dependencies {
     implementation(project(":support:jpa"))
     implementation(project(":support:security"))
     implementation(project(":support:web"))
+    implementation(project(":support:common"))
     implementation(project(":bc:shared"))
 
     // Spring Boot Starters
@@ -42,10 +41,11 @@ dependencies {
     annotationProcessor("org.projectlombok:lombok")
 
     // Apache Commons
-    implementation("org.apache.commons:commons-lang3:3.17.0")
+    implementation(libs.commons.lang3)
 
     // Test
     testImplementation(libs.spring.boot.starter.test)
+    testImplementation(libs.spring.boot.starter.webmvc.test)
     testImplementation(libs.spring.security.test)
     testImplementation(libs.archunit)
     testCompileOnly(libs.lombok)
@@ -54,9 +54,10 @@ dependencies {
     testImplementation(libs.testcontainers.elasticsearch)
     testImplementation(libs.testcontainers.junit)
     testImplementation(libs.spring.boot.testcontainers)
+
     // Retry
-    implementation("org.springframework.retry:spring-retry")
-    implementation(libs.spring.boot.starter.aop)
+    implementation(libs.spring.retry)
+    implementation(libs.spring.boot.starter.aspectj)
 }
 
 tasks.test {

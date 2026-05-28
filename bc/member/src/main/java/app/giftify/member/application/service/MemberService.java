@@ -1,10 +1,5 @@
 package app.giftify.member.application.service;
 
-import java.util.Optional;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import app.giftify.auth.application.TokenBlacklistService;
 import app.giftify.member.adapter.in.web.dto.SignupRequest;
 import app.giftify.member.application.port.in.GetMemberUseCase;
@@ -21,130 +16,145 @@ import app.giftify.shared.domain.event.member.MemberSignedEvent;
 import app.giftify.shared.domain.event.member.MemberUpdatedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class MemberService
-	implements GetMemberUseCase, RegisterMemberUseCase, UpdateMemberUseCase, WithdrawMemberUseCase {
+        implements GetMemberUseCase, RegisterMemberUseCase, UpdateMemberUseCase, WithdrawMemberUseCase {
 
-	private final MemberRepositoryPort memberRepositoryPort;
-	private final EventPublisher eventPublisher;
-	private final NicknameGenerator nicknameGenerator;
-	private final TokenBlacklistService tokenBlacklistService;
+    private final MemberRepositoryPort memberRepositoryPort;
+    private final EventPublisher eventPublisher;
+    private final NicknameGenerator nicknameGenerator;
+    private final TokenBlacklistService tokenBlacklistService;
 
-	@Override
-	public Optional<Member> getMemberByAuthSub(String authSub) {
-		return memberRepositoryPort.findByAuthSub(authSub);
-	}
+    @Override
+    public Optional<Member> getMemberByAuthSub(String authSub) {
+        return memberRepositoryPort.findByAuthSub(authSub);
+    }
 
-	@Override
-	public Optional<Member> getMemberById(Long id) {
-		return memberRepositoryPort.findById(id);
-	}
+    @Override
+    public Optional<Member> getMemberById(Long id) {
+        return memberRepositoryPort.findById(id);
+    }
 
-	@Override
-	public Member registerMember(RegisterCommand command) {
-		// [중복 가입 방지] 이미 가입된 회원인지 한 번 더 검증
-		memberRepositoryPort.findByAuthSub(command.authSub())
-			.ifPresent(m -> {
-				throw new DuplicateMemberException(command.authSub());
-			});
+    @Override
+    public Member registerMember(RegisterCommand command) {
+        Optional<Member> existingMember = memberRepositoryPort.findByAuthSub(command.authSub());
+        if (existingMember.isPresent()) {
+            Member member = existingMember.get();
+            if (member.isWithdrawn()) {
+                member.reactivate();
+                Member reactivated = memberRepositoryPort.save(member);
+                log.info("[MemberService] 탈퇴 회원 재활성화: memberId={}", reactivated.getId());
+                return reactivated;
+            }
+            throw new DuplicateMemberException(command.authSub());
+        }
 
-		// 닉네임이 없으면 자동 생성
-		String nickname = command.nickname();
-		if (nickname == null || nickname.isBlank()) {
-			nickname = nicknameGenerator.generate();
-			log.info("[MemberService] 닉네임 자동 생성: {}", nickname);
-		}
+        // 닉네임이 없으면 자동 생성
+        String nickname = command.nickname();
+        if (nickname == null || nickname.isBlank()) {
+            nickname = nicknameGenerator.generate();
+            log.info("[MemberService] 닉네임 자동 생성: {}", nickname);
+        }
 
-		Member member = Member.builder()
-			.authSub(command.authSub())
-			.email(command.email())
-			.nickname(nickname)
-			.birthday(command.birthday())
-			.address(command.address())
-			.phoneNum(command.phoneNum())
-			.name(command.name())
-			.build();
+        Member member = Member.builder()
+                .authSub(command.authSub())
+                .email(command.email())
+                .nickname(nickname)
+                .birthday(command.birthday())
+                .address(command.address())
+                .phoneNum(command.phoneNum())
+                .name(command.name())
+                .build();
 
-		Member savedMember = memberRepositoryPort.save(member);
+        Member savedMember = memberRepositoryPort.save(member);
 
-		eventPublisher.publish(
-			new MemberSignedEvent(
-				savedMember.getId(),
-				savedMember.getAuthSub(),
-				savedMember.getNickname()
-			)
-		);
+        eventPublisher.publish(
+                new MemberSignedEvent(
+                        savedMember.getId(),
+                        savedMember.getAuthSub(),
+                        savedMember.getNickname()
+                )
+        );
 
-		return savedMember;
-	}
+        return savedMember;
+    }
 
-	@Override
-	public Member signup(String authSub, SignupRequest request) {
-		Member member = memberRepositoryPort.findByAuthSub(authSub)
-			.orElseThrow(() -> new MemberNotFoundException(authSub));
+    @Override
+    public Member signup(String authSub, SignupRequest request) {
+        Member member = memberRepositoryPort.findByAuthSub(authSub)
+                .orElseThrow(() -> new MemberNotFoundException(authSub));
 
-		member.updateProfile(request.birthday(), request.address(), request.phoneNum());
+        member.updateProfile(request.birthday(), request.address(), request.phoneNum());
 
-		Member updatedMember = memberRepositoryPort.save(member);
+        if (request.nickname() != null && !request.nickname().isBlank()) {
+            member.updateInfo(request.nickname(), null, null, null);
+        }
 
-		log.info("[MemberService] 프로필 정보 업데이트 완료: memberId={}", updatedMember.getId());
+        Member updatedMember = memberRepositoryPort.save(member);
 
-		return updatedMember;
-	}
+        log.info("[MemberService] 프로필 정보 업데이트 완료: memberId={}", updatedMember.getId());
 
-	@Override
-	public Member updateMember(UpdateCommand command) {
-		Member member = memberRepositoryPort.findByAuthSub(command.authSub())
-			.orElseThrow(() -> new MemberNotFoundException(command.authSub()));
+        return updatedMember;
+    }
 
-		member.validateActiveStatus();
+    @Override
+    public Member updateMember(UpdateCommand command) {
+        Member member = memberRepositoryPort.findByAuthSub(command.authSub())
+                .orElseThrow(() -> new MemberNotFoundException(command.authSub()));
 
-		member.updateInfo(command.nickname(), command.address(), command.phoneNum(),
-			command.name());
+        member.validateActiveStatus();
 
-		Member updatedMember = memberRepositoryPort.save(member);
+        member.updateInfo(command.nickname(), command.address(), command.phoneNum(),
+                command.name());
 
-		eventPublisher.publish(
-			new MemberUpdatedEvent(
-				updatedMember.getId(),
-				updatedMember.getAuthSub(),
-				updatedMember.getNickname()
-			)
-		);
+        Member updatedMember = memberRepositoryPort.save(member);
 
-		log.info("[MemberService] 회원 정보 업데이트 완료: memberId={}", updatedMember.getId());
+        eventPublisher.publish(
+                new MemberUpdatedEvent(
+                        updatedMember.getId(),
+                        updatedMember.getAuthSub(),
+                        updatedMember.getNickname(),
+                        updatedMember.getRole()
+                )
+        );
 
-		return updatedMember;
-	}
+        log.info("[MemberService] 회원 정보 업데이트 완료: memberId={}", updatedMember.getId());
 
-	@Override
-	public void withdrawMember(String authSub) {
-		Member member = memberRepositoryPort.findByAuthSub(authSub)
-			.orElseThrow(() -> new MemberNotFoundException(authSub));
+        return updatedMember;
+    }
 
-		member.validateActiveStatus();
+    @Override
+    public void withdrawMember(String authSub) {
+        Member member = memberRepositoryPort.findByAuthSub(authSub)
+                .orElseThrow(() -> new MemberNotFoundException(authSub));
 
-		member.withdraw();
+        member.validateActiveStatus();
 
-		memberRepositoryPort.save(member);
+        member.withdraw();
 
-		// 토큰 무효화 - 탈퇴 후 기존 토큰으로 API 호출 방지
-		tokenBlacklistService.revokeAllUserTokens(authSub);
+        memberRepositoryPort.save(member);
 
-		log.info("[MemberService] 회원 탈퇴 및 토큰 무효화: authSub={}", authSub);
-	}
+        // 토큰 무효화 - 탈퇴 후 기존 토큰으로 API 호출 방지
+        tokenBlacklistService.revokeAllUserTokens(authSub);
 
-	@Override
-	public boolean existsByEmail(String email) {
-		return memberRepositoryPort.findByEmail(email).isPresent();
-	}
+        log.info("[MemberService] 회원 탈퇴 및 토큰 무효화: authSub={}", authSub);
+    }
 
-	@Override
-	public boolean isNicknameDuplicated(String nickname) {
-		return memberRepositoryPort.findByNickname(nickname).isPresent();
-	}
+    @Override
+    public boolean existsByEmail(String email) {
+        return memberRepositoryPort.findByEmail(email).isPresent();
+    }
+
+    @Override
+    public boolean isNicknameDuplicated(String nickname) {
+        return memberRepositoryPort.findByNickname(nickname).isPresent();
+    }
 }

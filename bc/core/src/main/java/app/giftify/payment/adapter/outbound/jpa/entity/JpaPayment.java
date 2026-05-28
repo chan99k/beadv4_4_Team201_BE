@@ -5,8 +5,8 @@ import java.time.LocalDateTime;
 
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 import app.giftify.payment.domain.Payment;
 import app.giftify.payment.domain.PaymentException;
@@ -29,7 +29,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "payment")
+@Table(name = "payments")
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -60,6 +60,9 @@ public class JpaPayment extends BaseJpaEntity {
 
 	@Column(name = "refunded_amount", nullable = false, precision = 19, scale = 2)
 	private BigDecimal refundedAmount;
+
+	@Column(name = "wallet_deducted_amount", nullable = false, precision = 19, scale = 2)
+	private BigDecimal walletDeductedAmount;
 
 	@Column(name = "order_items_json", nullable = false, columnDefinition = "TEXT")
 	private String orderItemsJson;
@@ -92,6 +95,7 @@ public class JpaPayment extends BaseJpaEntity {
 		BigDecimal originAmount,
 		BigDecimal paidAmount,
 		BigDecimal refundedAmount,
+		BigDecimal walletDeductedAmount,
 		String orderItemsJson,
 		PaymentStatus status,
 		String paymentKey,
@@ -107,6 +111,7 @@ public class JpaPayment extends BaseJpaEntity {
 		this.originAmount = originAmount;
 		this.paidAmount = paidAmount;
 		this.refundedAmount = refundedAmount;
+		this.walletDeductedAmount = walletDeductedAmount;
 		this.orderItemsJson = orderItemsJson;
 		this.status = status;
 		this.paymentKey = paymentKey;
@@ -119,7 +124,7 @@ public class JpaPayment extends BaseJpaEntity {
 		String orderItemsJson;
 		try {
 			orderItemsJson = objectMapper.writeValueAsString(payment.getOrderItems());
-		} catch (JsonProcessingException e) {
+		} catch (JacksonException e) {
 			throw new PaymentException(PaymentErrorCode.INTERNAL_SERVER_ERROR,
 				"[JpaPayment] orderItems JSON 직렬화 실패", e);
 		}
@@ -133,6 +138,7 @@ public class JpaPayment extends BaseJpaEntity {
 			payment.getOriginAmount().amount(),
 			payment.getPaidAmount().amount(),
 			payment.getRefundedAmount().amount(),
+			payment.getWalletDeductedAmount().amount(),
 			orderItemsJson,
 			payment.getStatus(),
 			payment.getPaymentKey(),
@@ -146,7 +152,7 @@ public class JpaPayment extends BaseJpaEntity {
 		OrderItemSnapshot[] orderItems;
 		try {
 			orderItems = objectMapper.readValue(orderItemsJson, OrderItemSnapshot[].class);
-		} catch (JsonProcessingException e) {
+		} catch (JacksonException e) {
 			throw new PaymentException(PaymentErrorCode.INTERNAL_SERVER_ERROR,
 				"[JpaPayment] orderItems JSON 역직렬화 실패", e);
 		}
@@ -161,6 +167,7 @@ public class JpaPayment extends BaseJpaEntity {
 			.originAmount(Money.of(originAmount))
 			.paidAmount(Money.of(paidAmount))
 			.refundedAmount(Money.of(refundedAmount))
+			.walletDeductedAmount(Money.of(walletDeductedAmount))
 			.orderItems(java.util.Arrays.asList(orderItems))
 			.status(status)
 			.paymentKey(paymentKey)
@@ -178,6 +185,7 @@ public class JpaPayment extends BaseJpaEntity {
 		this.approveCode = payment.getApproveCode();
 		this.paidAt = payment.getPaidAt();
 		this.refundedAmount = payment.getRefundedAmount().amount();
+		this.walletDeductedAmount = payment.getWalletDeductedAmount().amount();
 		this.orderItemsJson = orderItemsJson;
 	}
 }

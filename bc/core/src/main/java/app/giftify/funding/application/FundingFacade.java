@@ -2,9 +2,9 @@ package app.giftify.funding.application;
 
 import app.giftify.funding.adpater.inbound.FundingCreateResult;
 import app.giftify.funding.adpater.inbound.dto.*;
-import app.giftify.funding.domain.FundingStatus;
 import app.giftify.order.domain.OrderSnapshot;
 import app.giftify.shared.api.paging.PageResponse;
+import app.giftify.shared.domain.type.FundingStatus;
 import app.giftify.shared.domain.type.TargetType;
 import app.giftify.shared.domain.vo.FundingSnapshot;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +29,7 @@ public class FundingFacade {
     private final FundingRefuseUseCase fundingRefuseUseCase;
     private final FundingAcceptUseCase fundingAcceptUseCase;
     private final GetFundingSnapshotUseCase getFundingSnapshotUseCase;
+    private final FundingRetryAcceptUseCase fundingRetryAcceptUseCase;
 
     // todo : 쓰이는 곳에서 아래 Map으로 바뀌면 제거 예정
     @Transactional(readOnly = true)
@@ -123,8 +124,8 @@ public class FundingFacade {
     }
 
     @Transactional
-    public FundingCompleteResponseDto acceptFunding(Long id, Long memberId) {
-        return fundingAcceptUseCase.acceptFunding(id, memberId);
+    public FundingCompleteResponseDto requestFundingAcceptance(Long id, Long memberId) {
+        return fundingAcceptUseCase.requestFundingAcceptance(id, memberId);
     }
 
     @Transactional(readOnly = true)
@@ -155,5 +156,10 @@ public class FundingFacade {
     @Transactional(readOnly = true)
     public PageResponse<FundingResponseDto> getFriendsFundings(int page, int size, Long memberId) {
         return fundingGetUseCase.getFriendsFundings(page, size, memberId);
+    }
+
+    @Transactional
+    public FundingCompleteResponseDto retryAcceptFunding(Long id, Long memberId) {
+        return fundingRetryAcceptUseCase.retryAccept(id, memberId);
     }
 }

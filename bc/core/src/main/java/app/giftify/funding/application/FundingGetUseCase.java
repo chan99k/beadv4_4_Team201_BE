@@ -8,13 +8,13 @@ import app.giftify.funding.adpater.outbound.jpa.Funding;
 import app.giftify.funding.adpater.outbound.jpa.FundingParticipantMember;
 import app.giftify.funding.adpater.outbound.repository.FundingParticipantMemberRepository;
 import app.giftify.funding.adpater.outbound.repository.FundingRepository;
-import app.giftify.funding.domain.FundingStatus;
 import app.giftify.funding.domain.exception.FundingErrorCode;
 import app.giftify.funding.domain.exception.FundingException;
 import app.giftify.replica.MemberReplica;
 import app.giftify.replica.MemberReplicaRepository;
 import app.giftify.shared.api.paging.PageResponse;
 import app.giftify.shared.domain.port.FriendshipVerificationPort;
+import app.giftify.shared.domain.type.FundingStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -23,11 +23,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -174,11 +170,11 @@ public class FundingGetUseCase {
     }
 
     /**
-     * productId로 진행 중/수락 대기 중인 펀딩 존재여부 조회
+     * productId로 활성 상태 펀딩 존재여부 조회
      */
     @Transactional(readOnly = true)
     public boolean checkFundingExistsByProductId(Long productId) {
-        return fundingRepository.existsByProductIdAndStatusIn(productId, List.of(FundingStatus.IN_PROGRESS, FundingStatus.ACHIEVED));
+        return fundingRepository.existsByProductIdAndStatusIn(productId, List.of(FundingStatus.IN_PROGRESS, FundingStatus.ACHIEVED, FundingStatus.ACCEPTING, FundingStatus.ACCEPT_FAILED));
     }
 
     /**

@@ -12,14 +12,15 @@ dependencies {
     implementation(libs.spring.boot.starter.web)
 
     // Retry
-    implementation("org.springframework.retry:spring-retry:2.0.2")
-    implementation("org.springframework.boot:spring-boot-starter-aop")
+    implementation(libs.spring.retry)
+    implementation("org.springframework.boot:spring-boot-starter-aspectj")
 
     // Redis
     implementation(libs.spring.boot.starter.data.redis)
 
     testImplementation(libs.archunit)
     testImplementation(libs.spring.boot.starter.test)
+    testImplementation(libs.spring.boot.starter.data.redis.test)
     testImplementation(testFixtures(project(":support:common")))
 
     // Lombok
