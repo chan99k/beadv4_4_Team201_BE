@@ -54,7 +54,7 @@ class SseSubscriptionServiceTest {
 
 			sseSubscriptionService.subscribe(memberId);
 
-			then(registry).should().remove(memberId);
+			then(registry).should().remove(memberId, emitter);
 		}
 	}
 }
