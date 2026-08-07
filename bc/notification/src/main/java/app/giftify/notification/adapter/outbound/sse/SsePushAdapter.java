@@ -38,7 +38,7 @@ public class SsePushAdapter implements NotificationPushPort {
 			log.debug("SSE event sent: memberId={}, type={}", recipientId, envelope.type());
 		} catch (Exception e) {
 			log.warn("Failed to send SSE event: memberId={}, error={}", recipientId, e.getMessage());
-			registry.remove(recipientId);
+			registry.remove(recipientId, emitter);
 		}
 	}
 }

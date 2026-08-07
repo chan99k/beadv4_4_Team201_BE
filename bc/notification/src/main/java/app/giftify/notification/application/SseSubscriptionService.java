@@ -25,7 +25,7 @@ public class SseSubscriptionService implements SseSubscribeUseCase {
 				.data("connected"));
 		} catch (Exception e) {
 			log.warn("Failed to send initial connect event: memberId={}", memberId);
-			registry.remove(memberId);
+			registry.remove(memberId, emitter);
 		}
 
 		log.info("SSE subscribed: memberId={}", memberId);

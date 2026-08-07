@@ -101,7 +101,7 @@ class SsePushAdapterTest {
 
 			ssePushAdapter.send(recipientId, notification);
 
-			then(registry).should().remove(recipientId);
+			then(registry).should().remove(recipientId, emitter);
 		}
 	}
 
