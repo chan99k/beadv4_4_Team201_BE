@@ -21,21 +21,24 @@ public class SseEmitterRegistry {
 
 		SseEmitter emitter = new SseEmitter(TIMEOUT);
 
-		emitter.onCompletion(() -> {
-			log.debug("SSE connection completed: memberId={}", memberId);
-			emitters.remove(memberId);
-		});
-		emitter.onTimeout(() -> {
-			log.debug("SSE connection timed out: memberId={}", memberId);
-			emitters.remove(memberId);
-		});
-		emitter.onError(ex -> {
-			log.debug("SSE connection error: memberId={}, error={}", memberId, ex.getMessage());
-			emitters.remove(memberId);
-		});
+		emitter.onCompletion(() -> discard(memberId, emitter, "completed"));
+		emitter.onTimeout(() -> discard(memberId, emitter, "timed out"));
+		emitter.onError(ex -> discard(memberId, emitter, "error: " + ex.getMessage()));
 
 		emitters.put(memberId, emitter);
 		return emitter;
+	}
+
+	/**
+	 * 컨테이너가 이미 종료 처리한 연결을 레지스트리에서만 떼어낸다.
+	 *
+	 * <p>lifecycle 콜백이 부르는 경로다. 이 시점에 emitter 는 컨테이너가 이미 완료시켰으므로
+	 * {@code complete()} 를 다시 부르지 않는다. 옛 연결의 콜백이 재접속 이후 늦게 도착할 수
+	 * 있으므로, 현재 등록된 것이 그 emitter 일 때만 제거한다.
+	 */
+	private void discard(Long memberId, SseEmitter emitter, String reason) {
+		log.debug("SSE connection {}: memberId={}", reason, memberId);
+		emitters.remove(memberId, emitter);
 	}
 
 	public SseEmitter get(Long memberId) {
