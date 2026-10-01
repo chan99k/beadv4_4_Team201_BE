@@ -276,6 +276,18 @@ public class Payment extends BaseDomainModel {
         return PaymentEventType.CANCELED.canApply(this.status);
     }
 
+    public boolean isCompletable() {
+        return PaymentEventType.PAID.canApply(this.status);
+    }
+
+    public boolean requiresPgApproval() {
+        return !this.method.isWalletPayment() && this.walletDeductedAmount.isLessThan(this.paidAmount);
+    }
+
+    public Money getPgAmount() {
+        return this.paidAmount.minus(this.walletDeductedAmount);
+    }
+
     /**
      * 해당 회원이 이 결제의 소유자인지 확인합니다.
      *

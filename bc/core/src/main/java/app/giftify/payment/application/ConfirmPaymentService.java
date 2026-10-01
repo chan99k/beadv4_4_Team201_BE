@@ -48,10 +48,16 @@ public class ConfirmPaymentService implements ConfirmPaymentUseCase {
             throw new PaymentException(PaymentErrorCode.UNAUTHORIZED_ACCESS);
         }
 
+        if (!payment.isCompletable()) {
+            log.warn("[ConfirmPaymentService] 승인 불가 상태. paymentId={}, status={}",
+                    payment.getId(), payment.getStatus());
+            throw new PaymentException(PaymentErrorCode.NOT_PAYABLE);
+        }
+
         // 3. 금액 검증 (조작 방지)
-        if (!payment.getPaidAmount().equals(command.requestedAmount())) {
+        if (!payment.getPgAmount().equals(command.requestedAmount())) {
             log.warn("[ConfirmPaymentService] 금액 불일치! expected={}, actual={}",
-                    payment.getPaidAmount(), command.requestedAmount());
+                    payment.getPgAmount(), command.requestedAmount());
             throw new PaymentException(PaymentErrorCode.AMOUNT_MISMATCH);
         }
 
@@ -59,7 +65,7 @@ public class ConfirmPaymentService implements ConfirmPaymentUseCase {
         TossConfirmResult pgResult = paymentGateway.confirm(
                 command.paymentKey(),
                 command.orderNumber(),
-                payment.getPaidAmount()
+                payment.getPgAmount()
         );
 
         if (!pgResult.success()) {

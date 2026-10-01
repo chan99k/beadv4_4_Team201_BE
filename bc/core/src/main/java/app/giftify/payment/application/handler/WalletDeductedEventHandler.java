@@ -38,6 +38,12 @@ public class WalletDeductedEventHandler {
 				"[WalletDeductedEventHandler] Payment를 찾을 수 없습니다. paymentId=" + event.getPaymentId()
 			));
 
+		if (payment.requiresPgApproval()) {
+			log.info("[WalletDeductedEventHandler] PG 승인 대기. paymentId={}, pgAmount={}",
+				payment.getId(), payment.getPgAmount());
+			return;
+		}
+
 		Payment paid = payment.complete(null, null, null, event.getDeductedAt());
 		paymentRepository.save(paid);
 		moduleEventPublisher.publishFrom(paid, payment);
