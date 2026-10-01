@@ -1,0 +1,151 @@
+{
+    "root_group": {
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {
+                "order succeeded or rejected": {
+                    "name": "order succeeded or rejected",
+                    "path": "::order succeeded or rejected",
+                    "id": "b1ec6315745ecda76abf2c84c7624d7b",
+                    "passes": 11,
+                    "fails": 89
+                }
+            }
+    },
+    "metrics": {
+        "iterations": {
+            "count": 100,
+            "rate": 111.88548297047006
+        },
+        "error_rate": {
+            "passes": 0,
+            "fails": 100,
+            "thresholds": {
+                "rate<0.10": false
+            },
+            "value": 0
+        },
+        "http_req_tls_handshaking": {
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "data_received": {
+            "count": 44209,
+            "rate": 49463.453166415115
+        },
+        "http_req_failed": {
+            "passes": 89,
+            "fails": 11,
+            "thresholds": {
+                "rate<0.05": true
+            },
+            "value": 0.89
+        },
+        "http_req_blocked": {
+            "med": 2.8355,
+            "max": 3.77,
+            "p(90)": 3.3692,
+            "p(95)": 3.5042999999999997,
+            "avg": 2.8134800000000006,
+            "min": 1.155
+        },
+        "checks": {
+            "passes": 11,
+            "fails": 89,
+            "value": 0.11
+        },
+        "data_sent": {
+            "count": 37492,
+            "rate": 41948.10527528864
+        },
+        "http_req_connecting": {
+            "min": 0.449,
+            "med": 1.3745,
+            "max": 1.714,
+            "p(90)": 1.637,
+            "p(95)": 1.6721,
+            "avg": 1.29938
+        },
+        "http_req_duration": {
+            "min": 490.116,
+            "med": 684.6055,
+            "max": 886.614,
+            "p(90)": 859.4654,
+            "p(95)": 862.35785,
+            "avg": 685.0222699999999
+        },
+        "http_req_receiving": {
+            "p(95)": 1.9765,
+            "avg": 0.97209,
+            "min": 0.008,
+            "med": 0.39949999999999997,
+            "max": 24.875,
+            "p(90)": 1.3717000000000006
+        },
+        "iteration_duration": {
+            "avg": 688.1589066899998,
+            "min": 493.11,
+            "med": 688.2625835,
+            "max": 891.843084,
+            "p(90)": 862.6075048,
+            "p(95)": 865.222692
+        },
+        "http_req_duration{expected_response:true}": {
+            "max": 886.614,
+            "p(90)": 860.366,
+            "p(95)": 873.49,
+            "avg": 701.4065454545454,
+            "min": 492.146,
+            "med": 703.067
+        },
+        "failed_orders": {
+            "count": 89,
+            "rate": 99.57807984371836
+        },
+        "http_req_sending": {
+            "p(95)": 0.17394999999999983,
+            "avg": 0.049549999999999976,
+            "min": 0.003,
+            "med": 0.025,
+            "max": 0.35,
+            "p(90)": 0.1264
+        },
+        "http_req_waiting": {
+            "p(90)": 858.8785,
+            "p(95)": 861.76925,
+            "avg": 684.00063,
+            "min": 489.164,
+            "med": 684.461,
+            "max": 886.53
+        },
+        "http_reqs": {
+            "count": 100,
+            "rate": 111.88548297047006
+        },
+        "http_req_duration{name:concurrent_order}": {
+            "avg": 685.0222699999999,
+            "min": 490.116,
+            "med": 684.6055,
+            "max": 886.614,
+            "p(90)": 859.4654,
+            "p(95)": 862.35785,
+            "thresholds": {
+                "p(95)<1000": false
+            }
+        },
+        "successful_orders": {
+            "count": 11,
+            "rate": 12.307403126751707
+        }
+    },
+    "setup_data": {
+        "mockAuth": true,
+        "tokens": []
+    }
+}
