@@ -1,0 +1,151 @@
+{
+    "root_group": {
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {
+                "order succeeded or rejected": {
+                    "id": "b1ec6315745ecda76abf2c84c7624d7b",
+                    "passes": 10,
+                    "fails": 90,
+                    "name": "order succeeded or rejected",
+                    "path": "::order succeeded or rejected"
+                }
+            },
+        "name": ""
+    },
+    "metrics": {
+        "data_sent": {
+            "count": 37492,
+            "rate": 56350.390854559424
+        },
+        "http_req_connecting": {
+            "min": 0.837,
+            "med": 2.3265000000000002,
+            "max": 2.544,
+            "p(90)": 2.4461000000000004,
+            "p(95)": 2.4692499999999997,
+            "avg": 2.20122
+        },
+        "http_req_duration{expected_response:true}": {
+            "avg": 529.283,
+            "min": 381.079,
+            "med": 540.101,
+            "max": 647.952,
+            "p(90)": 627.4725,
+            "p(95)": 637.71225
+        },
+        "http_req_blocked": {
+            "min": 4.149,
+            "med": 7.6285,
+            "max": 9.913,
+            "p(90)": 8.4654,
+            "p(95)": 8.52385,
+            "avg": 7.374120000000001
+        },
+        "iteration_duration": {
+            "max": 662.693708,
+            "p(90)": 638.1931794,
+            "p(95)": 656.4468152,
+            "avg": 538.3895096099998,
+            "min": 386.479583,
+            "med": 549.4812294999999
+        },
+        "data_received": {
+            "count": 44290,
+            "rate": 66567.76941610042
+        },
+        "http_req_waiting": {
+            "max": 649.904,
+            "p(90)": 629.4928000000001,
+            "p(95)": 648.54765,
+            "avg": 529.7967,
+            "min": 379.122,
+            "med": 540.5245
+        },
+        "http_req_receiving": {
+            "min": 0.008,
+            "med": 0.361,
+            "max": 2.129,
+            "p(90)": 1.1852,
+            "p(95)": 1.3502999999999998,
+            "avg": 0.46036999999999995
+        },
+        "successful_orders": {
+            "count": 10,
+            "rate": 15.029977289704316
+        },
+        "http_req_sending": {
+            "max": 0.288,
+            "p(90)": 0.010100000000000003,
+            "p(95)": 0.037699999999999935,
+            "avg": 0.013649999999999987,
+            "min": 0.003,
+            "med": 0.0045000000000000005
+        },
+        "error_rate": {
+            "passes": 0,
+            "fails": 100,
+            "thresholds": {
+                "rate<0.10": false
+            },
+            "value": 0
+        },
+        "http_req_duration{name:concurrent_order}": {
+            "max": 650.276,
+            "p(90)": 629.5464000000001,
+            "p(95)": 649.1256,
+            "avg": 530.27072,
+            "min": 380.08,
+            "med": 540.766,
+            "thresholds": {
+                "p(95)<1000": false
+            }
+        },
+        "checks": {
+            "passes": 10,
+            "fails": 90,
+            "value": 0.1
+        },
+        "http_req_failed": {
+            "fails": 10,
+            "passes": 90,
+            "thresholds": {
+                "rate<0.05": true
+            },
+            "value": 0.9
+        },
+        "http_reqs": {
+            "count": 100,
+            "rate": 150.29977289704317
+        },
+        "http_req_duration": {
+            "avg": 530.27072,
+            "min": 380.08,
+            "med": 540.766,
+            "max": 650.276,
+            "p(90)": 629.5464000000001,
+            "p(95)": 649.1256
+        },
+        "failed_orders": {
+            "count": 90,
+            "rate": 135.26979560733884
+        },
+        "http_req_tls_handshaking": {
+            "p(95)": 0,
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0
+        },
+        "iterations": {
+            "count": 100,
+            "rate": 150.29977289704317
+        }
+    },
+    "setup_data": {
+        "mockAuth": true,
+        "tokens": []
+    }
+}

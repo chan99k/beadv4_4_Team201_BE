@@ -53,6 +53,8 @@ public class OrderController implements OrderV2ApiSpec {
                 getFundingItemCommands(orderRequest)
         );
 
+        // 낙관적 락 충돌은 재시도하지 않고 409 로 즉시 거절한다.
+        // 재시도를 서버에서 돌려본 결과는 ParticipateFundingRetrier 주석 참조.
         PlaceOrderResult response = coreFacade.participateFunding(command);
 
         return ResponseEntity.ok(RsData.success(response));

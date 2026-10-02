@@ -5,6 +5,8 @@ public enum InfraErrorCode implements ErrorCode {
     DB_LOCK_TIMEOUT(500, "INFRA_DB_001", "DB 락 획득에 실패했습니다.", true),
     DB_TEMPORARY_ERROR(503, "INFRA_DB_002", "일시적인 DB 오류입니다.", true),
     DB_CONSTRAINT_VIOLATION(500, "INFRA_DB_003", "DB 제약 조건 위반입니다.", false),
+    // 낙관적 락 충돌. 서버 고장이 아니라 다시 시도하면 되는 실패라 409 로 돌려준다
+    OPTIMISTIC_LOCK_CONFLICT(409, "INFRA_DB_004", "동시 요청으로 처리하지 못했습니다. 잠시 후 다시 시도해주세요.", true),
 
     EXTERNAL_API_TIMEOUT(504, "INFRA_EXT_001", "외부 API 응답 지연", true),
     EXTERNAL_API_ERROR(502, "INFRA_EXT_002", "외부 API 호출 실패", true),
