@@ -1,5 +1,6 @@
 package app.giftify.payment.domain;
 
+import app.giftify.payment.domain.event.PaymentDomainEvent;
 import app.giftify.shared.domain.base.BaseDomainModel;
 import app.giftify.shared.domain.event.payment.*;
 import app.giftify.shared.domain.type.CancelType;
@@ -9,8 +10,6 @@ import app.giftify.shared.domain.vo.Money;
 import org.springframework.lang.CheckReturnValue;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.List;
 import java.util.Objects;
 
 public class Payment extends BaseDomainModel {
@@ -26,7 +25,6 @@ public class Payment extends BaseDomainModel {
     private final Money paidAmount;
     private final Money refundedAmount;
     private final Money walletDeductedAmount;
-    private final List<OrderItemSnapshot> orderItems;
 
     private final PaymentStatus status;
     private final String paymentKey;
@@ -42,7 +40,7 @@ public class Payment extends BaseDomainModel {
 
     private Payment(Long id, PaymentType type, PaymentMethod method,
                     Long orderId, String orderNumber, Long memberId,
-                    Money originAmount, Money paidAmount, Money refundedAmount, Money walletDeductedAmount, List<OrderItemSnapshot> orderItems,
+                    Money originAmount, Money paidAmount, Money refundedAmount, Money walletDeductedAmount,
                     PaymentStatus status, String paymentKey, String lastTransactionKey, String approveCode,
                     LocalDateTime paidAt, LocalDateTime createdAt
     ) {
@@ -56,7 +54,6 @@ public class Payment extends BaseDomainModel {
         this.paidAmount = paidAmount;
         this.refundedAmount = refundedAmount != null ? refundedAmount : Money.zero();
         this.walletDeductedAmount = walletDeductedAmount != null ? walletDeductedAmount : Money.zero();
-        this.orderItems = List.copyOf(orderItems);
         this.status = status;
         this.paymentKey = paymentKey;
         this.lastTransactionKey = lastTransactionKey;
@@ -75,7 +72,6 @@ public class Payment extends BaseDomainModel {
             Long id, PaymentType type, PaymentMethod method,
             Long orderId, String orderNumber, Long memberId,
             Money originAmount, Money paidAmount, Money refundedAmount, Money walletDeductedAmount,
-            List<OrderItemSnapshot> orderItems,
             PaymentStatus status, String paymentKey, String lastTransactionKey, String approveCode,
             LocalDateTime paidAt, LocalDateTime createdAt
     ) {
@@ -83,7 +79,7 @@ public class Payment extends BaseDomainModel {
                 id, type, method,
                 orderId, orderNumber, memberId,
                 originAmount, paidAmount, refundedAmount, walletDeductedAmount,
-                orderItems, status, paymentKey, lastTransactionKey, approveCode,
+                status, paymentKey, lastTransactionKey, approveCode,
                 paidAt, createdAt
         );
     }
@@ -100,7 +96,6 @@ public class Payment extends BaseDomainModel {
                 .method(context.method())
                 .originAmount(amount)
                 .paidAmount(amount)
-                .orderItems(Collections.emptyList())
                 .status(PaymentStatus.PENDING)
                 .build();
     }
@@ -109,8 +104,7 @@ public class Payment extends BaseDomainModel {
             PaymentCreateContext context,
             Money originAmount,
             Money paidAmount,
-            Money walletDeductedAmount,
-            List<OrderItemSnapshot> orderItems
+            Money walletDeductedAmount
     ) {
         return builder()
                 .orderId(context.orderId())
@@ -121,7 +115,6 @@ public class Payment extends BaseDomainModel {
                 .originAmount(originAmount)
                 .paidAmount(paidAmount)
                 .walletDeductedAmount(walletDeductedAmount)
-                .orderItems(orderItems)
                 .status(PaymentStatus.PENDING)
                 .build();
     }
@@ -139,17 +132,16 @@ public class Payment extends BaseDomainModel {
                 getId(), this.type, this.method,
                 this.orderId, this.orderNumber, this.memberId,
                 this.originAmount, this.paidAmount, this.refundedAmount,
-                this.walletDeductedAmount, this.orderItems,
+                this.walletDeductedAmount,
                 PaymentEventType.PAID.getResultStatus(),
                 paymentKey, lastTransactionKey, approveCode,
                 paidAt, this.createdAt
         );
 
-        paid.registerEvent(PaymentSucceededEvent.create(
-                new PaymentSuccessData(
-                        getId(), getOrderId(), getMemberId(), getOrderNumber(), getPaidAmount(),
-                        getMethod(), getType(), paymentKey, lastTransactionKey
-                )
+        paid.registerEvent(new PaymentDomainEvent.Completed(
+                getId(), getOrderId(), getMemberId(), getOrderNumber(),
+                paid.getPaidAmount(), getMethod(), getType(),
+                paid.getPaymentKey(), paid.getLastTransactionKey()
         ));
 
         return paid;
@@ -172,18 +164,16 @@ public class Payment extends BaseDomainModel {
                 getId(), this.type, this.method,
                 this.orderId, this.orderNumber, this.memberId,
                 this.originAmount, this.paidAmount, this.refundedAmount,
-                this.walletDeductedAmount, this.orderItems,
+                this.walletDeductedAmount,
                 eventType.getResultStatus(),
                 this.paymentKey, this.lastTransactionKey, this.approveCode,
                 this.paidAt, this.createdAt
         );
 
-        canceled.registerEvent(PaymentCanceledEvent.create(
-                new PaymentCancelData(
-                        getId(), getOrderId(), getMemberId(), getOrderNumber(), getPaidAmount(),
-                        this.walletDeductedAmount,
-                        getMethod(), getType(), cancelType, reason, this.lastTransactionKey
-                )
+        canceled.registerEvent(new PaymentDomainEvent.Canceled(
+                getId(), getOrderId(), getMemberId(), getOrderNumber(),
+                getPaidAmount(), getMethod(), getType(),
+                cancelType, reason, this.lastTransactionKey
         ));
 
         return canceled;
@@ -206,20 +196,17 @@ public class Payment extends BaseDomainModel {
                 getId(), this.type, this.method,
                 this.orderId, this.orderNumber, this.memberId,
                 this.originAmount, this.paidAmount, newRefundedTotal,
-                this.walletDeductedAmount, this.orderItems,
+                this.walletDeductedAmount,
                 eventType.getResultStatus(),
                 this.paymentKey, newTransactionKey, this.approveCode,
                 this.paidAt, this.createdAt
         );
 
-        partiallyCanceled.registerEvent(PaymentCanceledEvent.create(
-                new PaymentCancelData(
+        partiallyCanceled.registerEvent(new PaymentDomainEvent.PartialCanceled(
                         getId(), getOrderId(), getMemberId(), getOrderNumber(),
-                        cancelAmount, this.walletDeductedAmount,
-                        getMethod(), getType(), cancelType, reason,
-                        newTransactionKey
+                        cancelAmount, getMethod(), getType(), reason, newTransactionKey
                 )
-        ));
+        );
 
         return partiallyCanceled;
     }
@@ -235,19 +222,17 @@ public class Payment extends BaseDomainModel {
                 getId(), this.type, this.method,
                 this.orderId, this.orderNumber, this.memberId,
                 this.originAmount, this.paidAmount, this.refundedAmount,
-                this.walletDeductedAmount, this.orderItems,
+                this.walletDeductedAmount,
                 PaymentEventType.FAILED.getResultStatus(),
                 this.paymentKey, this.lastTransactionKey, this.approveCode,
                 this.paidAt, this.createdAt
         );
 
-        failed.registerEvent(PaymentFailedEvent.create(
-                new PaymentFailureData(
-                        getId(), getOrderId(), getMemberId(), getOrderNumber(), getPaidAmount(),
-                        getWalletDeductedAmount(),
-                        getMethod(), getType()
+        failed.registerEvent(new PaymentDomainEvent.Failed(
+                        getId(), getOrderId(), getMemberId(), getOrderNumber(),
+                        getPaidAmount(), getMethod(), getType()
                 )
-        ));
+        );
 
         return failed;
     }
@@ -263,18 +248,17 @@ public class Payment extends BaseDomainModel {
                 getId(), this.type, this.method,
                 this.orderId, this.orderNumber, this.memberId,
                 this.originAmount, this.paidAmount, this.refundedAmount,
-                this.walletDeductedAmount, this.orderItems,
+                this.walletDeductedAmount,
                 this.status,
                 this.paymentKey, this.lastTransactionKey, this.approveCode,
                 this.paidAt, this.createdAt
         );
 
-        cancelFailed.registerEvent(PaymentCancelFailedEvent.create(
-                new PaymentCancelFailedData(
+        cancelFailed.registerEvent(new PaymentDomainEvent.CancelFailed(
                         getId(), getOrderId(), getMemberId(), getOrderNumber(),
                         getMethod(), getType(), errorMetadata
                 )
-        ));
+        );
 
         return cancelFailed;
     }
@@ -349,10 +333,6 @@ public class Payment extends BaseDomainModel {
 
     public Money getWalletDeductedAmount() {
         return walletDeductedAmount;
-    }
-
-    public List<OrderItemSnapshot> getOrderItems() {
-        return orderItems;
     }
 
     public PaymentStatus getStatus() {
