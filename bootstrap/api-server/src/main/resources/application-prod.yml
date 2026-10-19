@@ -2,6 +2,12 @@ spring:
   modulith:
     runtime:
       flyway-enabled: true
+    events:
+      staleness:
+        check-intervall: 1m
+        published: 10m
+        processing: 10m
+        resubmission: 10m
 
   datasource:
     url: ${DB_URL}
