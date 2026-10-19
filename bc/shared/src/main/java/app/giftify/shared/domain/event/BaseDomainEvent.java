@@ -3,11 +3,15 @@ package app.giftify.shared.domain.event;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 /**
  * 도메인 이벤트의 공통 속성 정의
  */
 public abstract class BaseDomainEvent {
+    @JsonProperty
     private final String eventId;
+    @JsonProperty
     private final LocalDateTime occurredAt;
     // TODO :: sourceType 을 여기다 포함하는게 맞지 않을까?
 
