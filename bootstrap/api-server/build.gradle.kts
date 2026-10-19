@@ -45,4 +45,5 @@ dependencies {
     testImplementation(libs.rest.assured)
     testImplementation("org.springframework.kafka:spring-kafka-test")
     testImplementation("org.awaitility:awaitility")
+    testImplementation(testFixtures(project(":support:common")))
 }
