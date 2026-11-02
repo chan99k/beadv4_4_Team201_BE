@@ -1,7 +1,10 @@
 package giftify.support.web.aop;
 
+import app.giftify.shared.api.exception.IdempotencyErrorCode;
+import app.giftify.shared.api.exception.InfraException;
 import app.giftify.shared.domain.event.BaseDomainEvent;
 import app.giftify.support.common.annotation.EventIdempotent;
+import giftify.support.web.idempotency.IdempotencyValue;
 import giftify.support.web.idempotency.aop.EventIdempotencyAspect;
 import giftify.support.web.idempotency.manager.IdempotencyManager;
 import giftify.support.web.idempotency.util.PayloadHasher;
@@ -80,6 +83,7 @@ class EventIdempotencyAspectTest {
         when(annotation.ttl()).thenReturn(TTL);
         when(payloadHasher.calculateHash(event)).thenReturn(HASH);
         when(idempotencyManager.attemptLock(REDIS_KEY, HASH, TTL)).thenReturn(false);
+        when(idempotencyManager.getStoredValue(REDIS_KEY)).thenReturn(IdempotencyValue.completed(HASH));
 
         // when
         Object result = aspect.execute(joinPoint, annotation);
@@ -109,5 +113,47 @@ class EventIdempotencyAspectTest {
 
         verify(idempotencyManager).removeKey(REDIS_KEY);
         verify(idempotencyManager, never()).updateToCompleted(anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("처리 중인 이벤트의 중복 수신은 예외를 던져 발행 기록이 실패로 남게 한다")
+    void execute_ProcessingDuplicate_Throws() throws Throwable {
+        // given
+        BaseDomainEvent event = createTestEvent();
+        when(joinPoint.getArgs()).thenReturn(new Object[]{event});
+        when(annotation.prefix()).thenReturn("TEST");
+        when(annotation.ttl()).thenReturn(TTL);
+        when(payloadHasher.calculateHash(event)).thenReturn(HASH);
+        when(idempotencyManager.attemptLock(REDIS_KEY, HASH, TTL)).thenReturn(false);
+        when(idempotencyManager.getStoredValue(REDIS_KEY)).thenReturn(IdempotencyValue.processing(HASH));
+
+        // when & then
+        assertThatThrownBy(() -> aspect.execute(joinPoint, annotation))
+                .isInstanceOf(InfraException.class)
+                .hasFieldOrPropertyWithValue("errorCode", IdempotencyErrorCode.EVENT_PROCESSING_IN_PROGRESS);
+
+        verify(joinPoint, never()).proceed();
+        verify(idempotencyManager, never()).removeKey(anyString());
+    }
+
+    @Test
+    @DisplayName("상태값이 비어있는 중복 수신은 스킵하지 않고 예외를 던진다")
+    void execute_UnknownStatusDuplicate_Throws() throws Throwable {
+        // given
+        BaseDomainEvent event = createTestEvent();
+        when(joinPoint.getArgs()).thenReturn(new Object[]{event});
+        when(annotation.prefix()).thenReturn("TEST");
+        when(annotation.ttl()).thenReturn(TTL);
+        when(payloadHasher.calculateHash(event)).thenReturn(HASH);
+        when(idempotencyManager.attemptLock(REDIS_KEY, HASH, TTL)).thenReturn(false);
+        when(idempotencyManager.getStoredValue(REDIS_KEY)).thenReturn(new IdempotencyValue(null, HASH));
+
+        // when & then
+        assertThatThrownBy(() -> aspect.execute(joinPoint, annotation))
+                .isInstanceOf(InfraException.class)
+                .hasFieldOrPropertyWithValue("errorCode", IdempotencyErrorCode.IDEMPOTENCY_STATE_INCONSISTENT);
+
+        verify(joinPoint, never()).proceed();
+        verify(idempotencyManager, never()).removeKey(anyString());
     }
 }
